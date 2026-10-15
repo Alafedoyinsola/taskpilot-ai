@@ -4,7 +4,7 @@
 
 > **Hackathon**: Celo — Agents on Open Rails<br>
 > **Track**: Build with buy<br>
-> **Status**: Core pipeline, safety controls, offline test suite (83/83 passing), and `@celo/buy` x402 integration complete. Live payment execution is disabled by default behind an explicit feature flag and user approval gate.
+> **Status**: Core pipeline, safety controls, offline test suite (132/132 passing across 6 test suites), ERC-8004 identity verification, and `@celo/buy` x402 integration complete. Live payment execution is disabled by default behind an explicit feature flag and user approval gate.
 
 ---
 
@@ -126,9 +126,9 @@ npx tsc --noEmit
 ```
 
 ### Running Offline Unit Tests
-Run the entire offline test suite (83 tests across 5 test suites, 100% mocked, $0 spent):
+Run the entire offline test suite (132 tests across 6 test suites, 100% mocked, $0 spent):
 ```bash
-npx tsx --test src/agent/executor.test.ts src/services/cencoriService.test.ts src/services/quoteService.test.ts src/config/attribution.test.ts src/payments/sepoliaAttributionTest.test.ts
+npx tsx --test src/agent/executor.test.ts src/services/cencoriService.test.ts src/services/quoteService.test.ts src/config/attribution.test.ts src/payments/sepoliaAttributionTest.test.ts src/services/identityService.test.ts
 ```
 
 Test coverage includes:
@@ -137,6 +137,7 @@ Test coverage includes:
 * **Sepolia Attribution Guards**: 15 tests covering address matching, hex formatting, and gas threshold validation.
 * **Quote Service**: 7 tests covering 402 challenge parsing, amount math, and recipient validation.
 * **Attribution**: 4 tests covering ERC-8021 metadata encoding and decoding via `@celo/attribution-tags`.
+* **ERC-8004 Identity Service**: 49 tests covering agent ID validation, contract mocks for matching/mismatching addresses, unset agent wallets, nonexistent agents, and RPC error handling.
 
 ### Running the Interactive Agent
 Run the interactive terminal interface:
@@ -165,7 +166,50 @@ To enable real mainnet inference calls:
 
 ---
 
-## 6. Attribution & Ecosystem Integration
+## 6. ERC-8004 Agent Identity Verification (Celo Mainnet)
+
+TaskPilot AI implements strictly read-only on-chain verification for ERC-8004 ("Trustless Agents") identity on Celo Mainnet:
+
+* **Identity Registry**: `0x8004A169FB4a3325136EB29fA0ceB6D2e539a432` (verified ERC-1967 proxy on Celo Mainnet)
+* **Chain ID**: `42220` (`celo`)
+* **RPC Endpoint**: `https://forno.celo.org` (or configurable via `CELO_RPC_URL`)
+
+### Read-Only Verification Architecture
+The identity service ([`src/services/identityService.ts`](src/services/identityService.ts)) performs strictly read-only contract calls via `viem`:
+1. `ownerOf(agentId)`: Checks the on-chain owner address holding the ERC-8004 identity token.
+2. `tokenURI(agentId)`: Retrieves the agent registration metadata URI (e.g., base64 gzip data URI or IPFS/HTTP JSON).
+3. `getAgentWallet(agentId)`: Retrieves the designated operational agent wallet address.
+
+### Important Identity Prerequisites
+* **Independent Registration Required**: An agent ID must already exist on Celo and be registered independently before it can be verified. TaskPilot AI does **not** auto-register identities, sign transactions, or execute on-chain state changes.
+* **No Presumed Ownership**: Do not assume agent ID 1 belongs to TaskPilot AI. On Celo Mainnet, agent ID 1 is registered to an independent third party (`0x6446aD9821021Eeb9f85B8a18B0153d58166d161`). TaskPilot AI checks against its own configured expected address (`0x548c2aB49A592c288F69F9B618A723DA47e56F89`) and explicitly flags ID 1 as an address mismatch.
+* **No Unverified Identity Claims**: TaskPilot AI does not claim a registered ERC-8004 identity until its own dedicated agent ID has been established and verified on-chain.
+* **Unset Operational Wallet Behavior**: If the registry returns the zero address (`0x000...000`) for `getAgentWallet`, this indicates the operational wallet is unset (not configured). If the contract owner matches the expected address, the agent is considered verified.
+
+### Configuring & Running the Identity Check
+
+1. Set the configured agent ID in `.env` (once registered):
+   ```env
+   ERC8004_AGENT_ID=<your_agent_id>
+   ```
+
+2. Run the identity verification service:
+   ```bash
+   # Run using environment variables (.env)
+   npx tsx src/services/identityService.ts
+
+   # Or specify an explicit agent ID and expected address via CLI flags:
+   npx tsx src/services/identityService.ts --agent-id 42 --expected-address 0x548c2aB49A592c288F69F9B618A723DA47e56F89
+   ```
+
+3. Run the offline identity unit test suite (49 tests):
+   ```bash
+   npx tsx --test src/services/identityService.test.ts
+   ```
+
+---
+
+## 7. Attribution & Ecosystem Integration
 
 * **Hackathon**: Celo — Agents on Open Rails
 * **Track**: Build with buy
@@ -178,6 +222,6 @@ To enable real mainnet inference calls:
 
 ---
 
-## 7. License
+## 8. License
 
 MIT License. See [LICENSE](LICENSE) for details.
