@@ -9,4 +9,4 @@ Celo — Agents on Open Rails
 Build with buy
 
 ## Status
-Project setup in progress.
+Project setup in progress.cd C:\Users\user\Documents\taskpilot-ai

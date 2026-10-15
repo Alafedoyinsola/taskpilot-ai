@@ -1,0 +1,31 @@
+{
+  "name": "taskpilot-ai",
+  "version": "0.1.0",
+  "description": "AI agent designed to complete real-world tasks using external services and Celo x402 payment rails",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "keywords": [
+    "celo",
+    "ai-agent",
+    "x402",
+    "micropayments",
+    "web3"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@celo/attribution-tags": "^0.5.0",
+    "dotenv": "^16.4.7",
+    "viem": "^2.57.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}
