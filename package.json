@@ -7,7 +7,10 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "tsx src/index.ts",
+    "serve": "tsx src/server.ts",
+    "start:web": "tsx src/server.ts",
+    "dev:web": "tsx watch src/server.ts"
   },
   "keywords": [
     "celo",
