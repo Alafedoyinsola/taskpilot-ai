@@ -3,11 +3,14 @@ import {
   http,
   isAddress,
   getAddress,
+  encodeFunctionData,
   type Address,
+  type Hex,
   type PublicClient,
 } from "viem";
 import { celo } from "viem/chains";
-import { AGENT_WALLET_ADDRESS } from "../config/attribution.ts";
+import { toDataSuffix } from "@celo/attribution-tags";
+import { AGENT_WALLET_ADDRESS, ATTRIBUTION_TAG } from "../config/attribution.ts";
 
 /**
  * ============================================================================
@@ -71,11 +74,163 @@ export const IDENTITY_REGISTRY_ABI = [
     outputs: [{ name: "", type: "address" }],
   },
   {
+    type: "function",
+    name: "register",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "agentURI", type: "string" }],
+    outputs: [{ name: "agentId", type: "uint256" }],
+  },
+  {
     type: "error",
     name: "ERC721NonexistentToken",
     inputs: [{ name: "tokenId", type: "uint256" }],
   },
 ] as const;
+
+export interface ERC8004RegistrationService {
+  name: string;
+  endpoint: string;
+  version?: string;
+}
+
+export interface ERC8004RegistrationRecord {
+  agentRegistry: string;
+  agentId?: number;
+}
+
+export interface ERC8004RegistrationDocument {
+  type: string;
+  name: string;
+  description: string;
+  image?: string;
+  services?: ERC8004RegistrationService[];
+  x402Support: boolean;
+  active: boolean;
+  registrations: ERC8004RegistrationRecord[];
+  supportedTrust?: string[];
+}
+
+export interface PreparedRegistrationTransaction {
+  readonly to: Address;
+  readonly chainId: number;
+  readonly value: bigint;
+  readonly functionSelector: Hex;
+  readonly agentURI: string;
+  readonly registrationDocument: ERC8004RegistrationDocument;
+  readonly rawCalldata: Hex;
+  readonly attributionTag: string;
+  readonly attributionSuffix: Hex;
+  readonly calldataWithAttribution: Hex;
+}
+
+/**
+ * Default registration document for TaskPilot AI conforming to ERC-8004 registration-v1.
+ *
+ * Design choices:
+ * - image: Omitted because no verified image asset is tracked in the repository.
+ * - x402Support: false, because TaskPilot AI is an autonomous client/consumer of x402
+ *   endpoints via @celo/buy ("Build with buy"), not an x402 paywall service provider.
+ * - supportedTrust: [], because TaskPilot AI registers for identity discovery and has
+ *   not implemented feedback scoring on the ERC-8004 Reputation Registry.
+ * - active: true, because the CLI pipeline, planner, safety controls, and verification
+ *   service are fully tested, functioning, and actively maintained.
+ */
+export const DEFAULT_TASKPILOT_REGISTRATION_DOC: ERC8004RegistrationDocument = {
+  type: "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+  name: "TaskPilot AI",
+  description:
+    "Autonomous task planning and DeFi intelligence agent with Celo x402 micropayments (Build with buy track). Operates as an interactive on-demand client.",
+  services: [
+    {
+      name: "web",
+      endpoint: "https://github.com/Alafedoyinsola/taskpilot-ai",
+    },
+  ],
+  x402Support: false,
+  active: true,
+  registrations: [
+    {
+      agentRegistry: `eip155:${CELO_MAINNET_CHAIN_ID}:${ERC8004_REGISTRY_ADDRESS}`,
+    },
+  ],
+  supportedTrust: [],
+};
+
+/**
+ * Builds an ERC-8004 registration document with optional overrides.
+ */
+export function buildAgentRegistrationDocument(
+  overrides?: Partial<ERC8004RegistrationDocument>
+): ERC8004RegistrationDocument {
+  return {
+    ...DEFAULT_TASKPILOT_REGISTRATION_DOC,
+    ...overrides,
+  };
+}
+
+/**
+ * Encodes an ERC-8004 registration document into an RFC 2397 base64 data URI.
+ */
+export function createAgentRegistrationUri(
+  doc: ERC8004RegistrationDocument = DEFAULT_TASKPILOT_REGISTRATION_DOC
+): string {
+  const jsonStr = JSON.stringify(doc);
+  const base64 = Buffer.from(jsonStr, "utf8").toString("base64");
+  return `data:application/json;base64,${base64}`;
+}
+
+/**
+ * Encodes the calldata for calling register(string agentURI).
+ */
+export function prepareRegistrationCalldata(agentURI: string): Hex {
+  return encodeFunctionData({
+    abi: IDENTITY_REGISTRY_ABI,
+    functionName: "register",
+    args: [agentURI],
+  });
+}
+
+/**
+ * Prepares the complete unsigned registration transaction calldata,
+ * appending the ERC-8021 attribution suffix via the official SDK.
+ */
+export function prepareAttributedRegistrationTransaction(options?: {
+  document?: ERC8004RegistrationDocument;
+  agentURI?: string;
+  attributionTag?: string;
+  registryAddress?: string;
+}): PreparedRegistrationTransaction {
+  const rawRegistry = normalizeAddressInput(
+    options?.registryAddress || ERC8004_REGISTRY_ADDRESS
+  );
+  if (!isAddress(rawRegistry, { strict: false })) {
+    throw new Error(`Invalid registry address: "${options?.registryAddress}"`);
+  }
+  const to = getAddress(rawRegistry);
+  const registrationDocument =
+    options?.document || DEFAULT_TASKPILOT_REGISTRATION_DOC;
+  const agentURI =
+    options?.agentURI || createAgentRegistrationUri(registrationDocument);
+  const rawCalldata = prepareRegistrationCalldata(agentURI);
+  const functionSelector = rawCalldata.slice(0, 10) as Hex;
+  const attributionTag = options?.attributionTag || ATTRIBUTION_TAG;
+  const attributionSuffix = toDataSuffix(attributionTag) as Hex;
+  const calldataWithAttribution = (rawCalldata +
+    attributionSuffix.slice(2)) as Hex;
+
+  return {
+    to,
+    chainId: CELO_MAINNET_CHAIN_ID,
+    value: 0n,
+    functionSelector,
+    agentURI,
+    registrationDocument,
+    rawCalldata,
+    attributionTag,
+    attributionSuffix,
+    calldataWithAttribution,
+  };
+}
 
 /**
  * Abstract reader interface allowing dependency injection and offline unit testing.
@@ -551,11 +706,34 @@ function isDirectExecution(): boolean {
 
 if (isDirectExecution() && !process.env.NODE_TEST_CONTEXT) {
   (async () => {
+    const args = process.argv.slice(2);
+
+    if (args.includes("--prepare-registration") || args.includes("--prepare")) {
+      console.log("=================================================");
+      console.log("   ERC-8004 Registration Transaction Prepared   ");
+      console.log("   (Unsigned Payload — Zero Private Keys Used)  ");
+      console.log("=================================================\n");
+
+      const prepared = prepareAttributedRegistrationTransaction();
+      console.log(`Target Contract (To) : ${prepared.to}`);
+      console.log(`Celo Chain ID        : ${prepared.chainId}`);
+      console.log(`Value (CELO)         : ${prepared.value.toString()}`);
+      console.log(`Function Selector    : ${prepared.functionSelector} (register(string))`);
+      console.log(`Attribution Tag      : ${prepared.attributionTag}`);
+      console.log(`Attribution Suffix   : ${prepared.attributionSuffix}`);
+      console.log(`\n[Registration Document]\n${JSON.stringify(prepared.registrationDocument, null, 2)}`);
+      console.log(`\n[Agent URI]\n${prepared.agentURI}`);
+      console.log(`\n[Raw Calldata]\n${prepared.rawCalldata}`);
+      console.log(`\n[Attributed Calldata (with ERC-8021 suffix)]\n${prepared.calldataWithAttribution}`);
+      console.log("\n-------------------------------------------------");
+      console.log("STATUS: Prepared and verified offline. Ready for signing.");
+      console.log("-------------------------------------------------\n");
+      return;
+    }
+
     console.log("=================================================");
     console.log("   ERC-8004 Identity Verification (Celo)        ");
     console.log("=================================================\n");
-
-    const args = process.argv.slice(2);
     let cliAgentId: string | undefined;
     let cliExpectedAddress: string | undefined;
 

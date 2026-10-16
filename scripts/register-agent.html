@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TaskPilot AI — ERC-8004 Registration Review & Broadcast</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card-bg: #161b22;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --text-muted: #8b949e;
+      --heading: #f0f6fc;
+      --accent: #388bfd;
+      --accent-hover: #1f6feb;
+      --success: #238636;
+      --success-hover: #2ea043;
+      --warning: #d29922;
+      --error: #f85149;
+      --code-bg: #090d13;
+      --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      line-height: 1.5;
+      padding: 24px 16px 48px;
+    }
+
+    .container {
+      max-width: 880px;
+      margin: 0 auto;
+    }
+
+    header {
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h1 {
+      color: var(--heading);
+      font-size: 24px;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .badge {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 12px;
+      background: rgba(56, 139, 253, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(56, 139, 253, 0.4);
+    }
+
+    .badge.mainnet {
+      background: rgba(35, 134, 54, 0.15);
+      color: #3fb950;
+      border-color: rgba(35, 134, 54, 0.4);
+    }
+
+    p.subtitle {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .alert {
+      padding: 12px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      margin-bottom: 20px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .alert-info {
+      background: rgba(56, 139, 253, 0.1);
+      border: 1px solid rgba(56, 139, 253, 0.3);
+      color: #79c0ff;
+    }
+
+    .alert-warning {
+      background: rgba(210, 153, 34, 0.15);
+      border: 1px solid rgba(210, 153, 34, 0.4);
+      color: #e3b341;
+    }
+
+    .alert-success {
+      background: rgba(35, 134, 54, 0.15);
+      border: 1px solid rgba(35, 134, 54, 0.4);
+      color: #56d364;
+    }
+
+    .alert-error {
+      background: rgba(248, 81, 73, 0.15);
+      border: 1px solid rgba(248, 81, 73, 0.4);
+      color: #ff7b72;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 18px 20px;
+      margin-bottom: 20px;
+    }
+
+    .card h2 {
+      font-size: 16px;
+      color: var(--heading);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    @media (max-width: 600px) {
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .field {
+      margin-bottom: 12px;
+    }
+
+    .field-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+
+    .field-value {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--heading);
+      word-break: break-all;
+      background: var(--code-bg);
+      padding: 6px 10px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      overflow-x: auto;
+      max-height: 240px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: #e6edf3;
+    }
+
+    .copy-btn {
+      background: #21262d;
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: var(--font-sans);
+    }
+
+    .copy-btn:hover {
+      background: #30363d;
+      color: var(--heading);
+    }
+
+    button.primary {
+      background: var(--success);
+      color: #fff;
+      font-weight: 600;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      padding: 10px 20px;
+      font-size: 15px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.15s ease;
+    }
+
+    button.primary:hover:not(:disabled) {
+      background: var(--success-hover);
+    }
+
+    button.primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    button.secondary {
+      background: #21262d;
+      color: var(--text);
+      font-weight: 600;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 16px;
+      font-size: 14px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    button.secondary:hover {
+      background: #30363d;
+      color: var(--heading);
+    }
+
+    .wallet-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding: 12px 16px;
+      background: #1c2128;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin-bottom: 20px;
+    }
+
+    .wallet-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #8b949e;
+    }
+
+    .dot.connected {
+      background: #3fb950;
+    }
+
+    .dot.wrong-net {
+      background: #d29922;
+    }
+
+    .tx-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>
+        TaskPilot AI
+        <span class="badge">ERC-8004</span>
+        <span class="badge mainnet">Celo Mainnet</span>
+      </h1>
+      <p class="subtitle">
+        Review verified registration payload and submit via your browser wallet confirmation screen.
+      </p>
+    </header>
+
+    <div class="alert alert-info">
+      <div>
+        <strong>Safe & Inspectable:</strong> This tool runs entirely in your local browser. It never asks for, handles, or accesses private keys. You review the exact contract address, function call, and calldata inside your wallet extension before approving.
+      </div>
+    </div>
+
+    <!-- Wallet Connection Bar -->
+    <div class="wallet-bar">
+      <div class="wallet-status">
+        <span id="walletDot" class="dot"></span>
+        <span id="walletStatusText">Wallet not connected</span>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button id="switchNetBtn" class="secondary" style="display: none;" onclick="switchToCelo()">
+          Switch to Celo Mainnet
+        </button>
+        <button id="connectWalletBtn" class="secondary" onclick="connectWallet()">
+          Connect Wallet
+        </button>
+      </div>
+    </div>
+
+    <div id="txStatusAlert" style="display: none;" class="alert"></div>
+
+    <!-- Transaction Summary Card -->
+    <div class="card">
+      <h2>1. Transaction Parameters</h2>
+      <div class="grid-2">
+        <div class="field">
+          <div class="field-label">Target Contract (To)</div>
+          <div class="field-value" id="targetContract">0x8004A169FB4a3325136EB29fA0ceB6D2e539a432</div>
+        </div>
+        <div class="field">
+          <div class="field-label">Network & Chain ID</div>
+          <div class="field-value">Celo Mainnet (42220 / 0xa4ec)</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="field">
+          <div class="field-label">Transaction Value</div>
+          <div class="field-value">0 CELO (0x0)</div>
+        </div>
+        <div class="field">
+          <div class="field-label">Contract Function</div>
+          <div class="field-value">register(string agentURI) [0xf2c298be]</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-label">ERC-8021 Attribution Tag (Loops House)</div>
+        <div class="field-value">celo_c386b0979578 (Appended Schema 0 Suffix: 35 bytes)</div>
+      </div>
+    </div>
+
+    <!-- Decoded Registration Document Card -->
+    <div class="card">
+      <h2>
+        <span>2. Decoded Registration Document</span>
+        <button class="copy-btn" onclick="copyText('regDocPre')">Copy JSON</button>
+      </h2>
+      <pre id="regDocPre">{
+  "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+  "name": "TaskPilot AI",
+  "description": "Autonomous task planning and DeFi intelligence agent with Celo x402 micropayments (Build with buy track). Operates as an interactive on-demand client.",
+  "services": [
+    {
+      "name": "web",
+      "endpoint": "https://github.com/Alafedoyinsola/taskpilot-ai"
+    }
+  ],
+  "x402Support": false,
+  "active": true,
+  "registrations": [
+    {
+      "agentRegistry": "eip155:42220:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432"
+    }
+  ],
+  "supportedTrust": []
+}</pre>
+    </div>
+
+    <!-- Agent URI Card -->
+    <div class="card">
+      <h2>
+        <span>3. Encoded Agent URI (RFC 2397 Data URI)</span>
+        <button class="copy-btn" onclick="copyText('agentUriPre')">Copy URI</button>
+      </h2>
+      <pre id="agentUriPre">data:application/json;base64,eyJ0eXBlIjoiaHR0cHM6Ly9laXBzLmV0aGVyZXVtLm9yZy9FSVBTL2VpcC04MDA0I3JlZ2lzdHJhdGlvbi12MSIsIm5hbWUiOiJUYXNrUGlsb3QgQUkiLCJkZXNjcmlwdGlvbiI6IkF1dG9ub21vdXMgdGFzayBwbGFubmluZyBhbmQgRGVGaSBpbnRlbGxpZ2VuY2UgYWdlbnQgd2l0aCBDZWxvIHg0MDIgbWljcm9wYXltZW50cyAoQnVpbGQgd2l0aCBidXkgdHJhY2spLiBPcGVyYXRlcyBhcyBhbiBpbnRlcmFjdGl2ZSBvbi1kZW1hbmQgY2xpZW50LiIsInNlcnZpY2VzIjpbeyJuYW1lIjoid2ViIiwiZW5kcG9pbnQiOiJodHRwczovL2dpdGh1Yi5jb20vQWxhZmVkb3lpbnNvbGEvdGFza3BpbG90LWFpIn1dLCJ4NDAyU3VwcG9ydCI6ZmFsc2UsImFjdGl2ZSI6dHJ1ZSwicmVnaXN0cmF0aW9ucyI6W3siYWdlbnRSZWdpc3RyeSI6ImVpcDE1NTo0MjIyMDoweDgwMDRBMTY5RkI0YTMzMjUxMzZFQjI5ZkEwY2VCNkQyZTUzOWE0MzIifV0sInN1cHBvcnRlZFRydXN0IjpbXX0=</pre>
+    </div>
+
+    <!-- Attributed Calldata Card -->
+    <div class="card">
+      <h2>
+        <span>4. Exact Calldata (register calldata + ERC-8021 Suffix)</span>
+        <button class="copy-btn" onclick="copyText('calldataPre')">Copy Calldata</button>
+      </h2>
+      <pre id="calldataPre">0xf2c298be000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000002ad646174613a6170706c69636174696f6e2f6a736f6e3b6261736536342c65794a306558426c496a6f696148523063484d364c79396c6158427a4c6d5630614756795a5856744c6d39795a793946535642544c325670634330344d44413049334a6c5a326c7a64484a6864476c76626931324d534973496d3568625755694f694a5559584e7255476c736233516751556b694c434a6b5a584e6a636d6c7764476c7662694936496b4631644739756232317664584d676447467a6179427762474675626d6c755a794268626d51675247564761534270626e526c624778705a325675593255675957646c626e516764326c30614342445a577876494867304d44496762576c6a636d397759586c745a5735306379416f516e56706247516764326c306143426964586b6764484a68593273704c694250634756795958526c637942686379426862694270626e526c636d466a64476c325a5342766269316b5a573168626d5167593278705a5735304c694973496e4e6c636e5a705932567a496a706265794a755957316c496a6f6964325669496977695a57356b63473970626e51694f694a6f64485277637a6f764c326470644768315969356a62323076515778685a6d566b62336c70626e4e76624745766447467a61334270624739304c574670496e31644c434a344e4441795533567763473979644349365a6d467363325573496d466a64476c325a53493664484a315a537769636d566e61584e30636d46306157397563794936573373695957646c626e52535a5764706333527965534936496d5670634445314e546f304d6a49794d446f77654467774d4452424d545935526b493059544d7a4d6a55784d7a5a46516a49355a6b4577593256434e6b51795a54557a4f5745304d7a496966563073496e4e3163484276636e526c5a46527964584e30496a70625858303d0000000000000000000000000000000000000063656c6f5f633338366230393739353738110080218021802180218021802180218021</pre>
+
+      <div class="tx-actions">
+        <p style="font-size: 13px; color: var(--text-muted);">
+          Clicking the button below prompts your browser wallet (e.g. MetaMask / Rabby). You can review the exact data, gas estimation, and confirmation prompt before broadcasting.
+        </p>
+        <button id="sendTxBtn" class="primary" onclick="sendTransaction()" disabled>
+          Send Registration via Connected Wallet
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const TARGET_CONTRACT = "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432";
+    const CELO_CHAIN_ID_HEX = "0xa4ec"; // 42220 in hex
+    const CALLDATA = document.getElementById("calldataPre").innerText.trim();
+
+    let userAddress = null;
+    let currentChainId = null;
+
+    function updateWalletUI() {
+      const dot = document.getElementById("walletDot");
+      const text = document.getElementById("walletStatusText");
+      const connectBtn = document.getElementById("connectWalletBtn");
+      const switchBtn = document.getElementById("switchNetBtn");
+      const sendBtn = document.getElementById("sendTxBtn");
+
+      if (!userAddress) {
+        dot.className = "dot";
+        text.innerText = "Wallet not connected";
+        connectBtn.style.display = "inline-flex";
+        connectBtn.innerText = "Connect Wallet";
+        switchBtn.style.display = "none";
+        sendBtn.disabled = true;
+        return;
+      }
+
+      const shortAddr = userAddress.slice(0, 6) + "..." + userAddress.slice(-4);
+
+      if (currentChainId !== CELO_CHAIN_ID_HEX) {
+        dot.className = "dot wrong-net";
+        text.innerHTML = `Connected: <strong>${shortAddr}</strong> <span style="color:var(--warning)">(Wrong Network)</span>`;
+        connectBtn.style.display = "none";
+        switchBtn.style.display = "inline-flex";
+        sendBtn.disabled = true;
+        showAlert("Please switch your wallet network to Celo Mainnet (Chain ID 42220).", "warning");
+      } else {
+        dot.className = "dot connected";
+        text.innerHTML = `Connected: <strong>${shortAddr}</strong> <span style="color:#3fb950">(Celo Mainnet)</span>`;
+        connectBtn.style.display = "none";
+        switchBtn.style.display = "none";
+        sendBtn.disabled = false;
+        hideAlert();
+      }
+    }
+
+    async function connectWallet() {
+      if (typeof window.ethereum === "undefined") {
+        showAlert("No Ethereum browser extension detected. Please open this file in a browser with MetaMask, Rabby, or a Web3 wallet installed.", "error");
+        return;
+      }
+
+      try {
+        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+        if (accounts && accounts.length > 0) {
+          userAddress = accounts[0];
+          currentChainId = await window.ethereum.request({ method: "eth_chainId" });
+          updateWalletUI();
+        }
+      } catch (err) {
+        showAlert(`Wallet connection failed: ${err.message || err}`, "error");
+      }
+    }
+
+    async function switchToCelo() {
+      if (!window.ethereum) return;
+      try {
+        await window.ethereum.request({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: CELO_CHAIN_ID_HEX }],
+        });
+        currentChainId = await window.ethereum.request({ method: "eth_chainId" });
+        updateWalletUI();
+      } catch (switchError) {
+        // Chain not added to wallet (4902)
+        if (switchError.code === 4902) {
+          try {
+            await window.ethereum.request({
+              method: "wallet_addEthereumChain",
+              params: [
+                {
+                  chainId: CELO_CHAIN_ID_HEX,
+                  chainName: "Celo Mainnet",
+                  nativeCurrency: { name: "CELO", symbol: "CELO", decimals: 18 },
+                  rpcUrls: ["https://forno.celo.org"],
+                  blockExplorerUrls: ["https://celoscan.io"],
+                },
+              ],
+            });
+            currentChainId = await window.ethereum.request({ method: "eth_chainId" });
+            updateWalletUI();
+          } catch (addError) {
+            showAlert(`Failed to add Celo network: ${addError.message || addError}`, "error");
+          }
+        } else {
+          showAlert(`Failed to switch network: ${switchError.message || switchError}`, "error");
+        }
+      }
+    }
+
+    async function sendTransaction() {
+      if (!userAddress || currentChainId !== CELO_CHAIN_ID_HEX) {
+        showAlert("Please connect your wallet on Celo Mainnet first.", "warning");
+        return;
+      }
+
+      const sendBtn = document.getElementById("sendTxBtn");
+      sendBtn.disabled = true;
+      sendBtn.innerText = "Awaiting Wallet Confirmation...";
+
+      try {
+        showAlert("Please review and confirm the transaction in your wallet prompt.", "info");
+
+        const txHash = await window.ethereum.request({
+          method: "eth_sendTransaction",
+          params: [
+            {
+              from: userAddress,
+              to: TARGET_CONTRACT,
+              data: CALLDATA,
+              value: "0x0",
+            },
+          ],
+        });
+
+        sendBtn.innerText = "Transaction Broadcasted!";
+        showAlert(
+          `Success! Transaction submitted.<br/>Hash: <strong>${txHash}</strong><br/><br/>` +
+          `<a href="https://celoscan.io/tx/${txHash}" target="_blank" rel="noopener noreferrer">View on CeloScan &rarr;</a><br/><br/>` +
+          `<em>Once the transaction confirms, check your new Agent ID on CeloScan or run: <code>npm run identity:verify</code></em>`,
+          "success"
+        );
+      } catch (err) {
+        sendBtn.disabled = false;
+        sendBtn.innerText = "Send Registration via Connected Wallet";
+        if (err.code === 4001 || (err.message && err.message.includes("User rejected"))) {
+          showAlert("Transaction cancelled or rejected in wallet.", "warning");
+        } else {
+          showAlert(`Transaction failed: ${err.message || err}`, "error");
+        }
+      }
+    }
+
+    function showAlert(html, type) {
+      const box = document.getElementById("txStatusAlert");
+      box.className = `alert alert-${type}`;
+      box.innerHTML = html;
+      box.style.display = "block";
+    }
+
+    function hideAlert() {
+      const box = document.getElementById("txStatusAlert");
+      box.style.display = "none";
+    }
+
+    function copyText(elementId) {
+      const text = document.getElementById(elementId).innerText.trim();
+      navigator.clipboard.writeText(text).then(() => {
+        alert("Copied to clipboard!");
+      }).catch(() => {
+        const temp = document.createElement("textarea");
+        temp.value = text;
+        document.body.appendChild(temp);
+        temp.select();
+        document.execCommand("copy");
+        document.body.removeChild(temp);
+        alert("Copied to clipboard!");
+      });
+    }
+
+    // Auto-detect existing connection on load
+    if (typeof window.ethereum !== "undefined") {
+      window.ethereum.request({ method: "eth_accounts" }).then((accounts) => {
+        if (accounts && accounts.length > 0) {
+          userAddress = accounts[0];
+          window.ethereum.request({ method: "eth_chainId" }).then((chainId) => {
+            currentChainId = chainId;
+            updateWalletUI();
+          });
+        }
+      }).catch(() => {});
+
+      window.ethereum.on("accountsChanged", (accounts) => {
+        userAddress = (accounts && accounts.length > 0) ? accounts[0] : null;
+        updateWalletUI();
+      });
+
+      window.ethereum.on("chainChanged", (chainId) => {
+        currentChainId = chainId;
+        updateWalletUI();
+      });
+    }
+  </script>
+</body>
+</html>

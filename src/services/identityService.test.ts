@@ -2,11 +2,19 @@ import {
   parseAgentId,
   isNonexistentTokenError,
   verifyAgentIdentity,
+  prepareRegistrationCalldata,
+  prepareAttributedRegistrationTransaction,
+  createAgentRegistrationUri,
+  DEFAULT_TASKPILOT_REGISTRATION_DOC,
   ERC8004_REGISTRY_ADDRESS,
   CELO_MAINNET_CHAIN_ID,
   ZERO_ADDRESS,
+  IDENTITY_REGISTRY_ABI,
   type ContractReader,
 } from "./identityService.ts";
+import { decodeFunctionData } from "viem";
+import { fromDataSuffix } from "@celo/attribution-tags";
+import { ATTRIBUTION_TAG } from "../config/attribution.ts";
 
 /**
  * ============================================================================
@@ -284,6 +292,166 @@ async function runIdentityServiceTests(): Promise<void> {
 
   assert("Matches addresses case-insensitively", resCase.status === "VERIFIED");
   assert("isOwnerMatch is true across case variations", resCase.matchDetails?.isOwnerMatch === true);
+
+  // 16. ERC-8004 Registration Document & Attribution Calldata Preparation
+  assert(
+    "Registration document conforms to ERC-8004 registration-v1 type",
+    DEFAULT_TASKPILOT_REGISTRATION_DOC.type ===
+      "https://eips.ethereum.org/EIPS/eip-8004#registration-v1"
+  );
+  assert(
+    "Registration document specifies TaskPilot AI name",
+    DEFAULT_TASKPILOT_REGISTRATION_DOC.name === "TaskPilot AI"
+  );
+  assert(
+    "Registration document sets x402Support to false (client buyer)",
+    DEFAULT_TASKPILOT_REGISTRATION_DOC.x402Support === false
+  );
+  assert(
+    "Registration document omits nonexistent image field",
+    DEFAULT_TASKPILOT_REGISTRATION_DOC.image === undefined
+  );
+  assert(
+    "Registration document sets supportedTrust to empty array (discovery only)",
+    Array.isArray(DEFAULT_TASKPILOT_REGISTRATION_DOC.supportedTrust) &&
+      DEFAULT_TASKPILOT_REGISTRATION_DOC.supportedTrust.length === 0
+  );
+  assert(
+    "Registration document marks active as true (fully tested on-demand client)",
+    DEFAULT_TASKPILOT_REGISTRATION_DOC.active === true
+  );
+  assert(
+    "Registration document binds Celo Mainnet registry address",
+    DEFAULT_TASKPILOT_REGISTRATION_DOC.registrations[0]?.agentRegistry ===
+      `eip155:42220:${ERC8004_REGISTRY_ADDRESS}`
+  );
+
+  const uri = createAgentRegistrationUri();
+  assert(
+    "createAgentRegistrationUri produces RFC 2397 base64 data URI",
+    uri.startsWith("data:application/json;base64,")
+  );
+
+  const rawCalldata = prepareRegistrationCalldata(uri);
+  assert(
+    "prepareRegistrationCalldata encodes canonical register selector 0xf2c298be",
+    rawCalldata.startsWith("0xf2c298be")
+  );
+
+  const preparedTx = prepareAttributedRegistrationTransaction();
+  assert(
+    "Prepared transaction targets canonical Celo Mainnet Identity Registry",
+    preparedTx.to === ERC8004_REGISTRY_ADDRESS
+  );
+  assert(
+    "Prepared transaction specifies Celo Mainnet chain ID 42220",
+    preparedTx.chainId === 42220
+  );
+  assert("Prepared transaction value is 0 CELO", preparedTx.value === 0n);
+  assert(
+    "Prepared transaction function selector is 0xf2c298be",
+    preparedTx.functionSelector === "0xf2c298be"
+  );
+  assert(
+    "Prepared transaction applies assigned Loops House attribution tag",
+    preparedTx.attributionTag === ATTRIBUTION_TAG
+  );
+
+  // 17. Decode register(string) calldata and verify parsed JSON & suffix
+  const suffixLenHex = 70; // 35 bytes * 2 hex chars
+  const fullCalldata = preparedTx.calldataWithAttribution;
+  const rawFromTagged = fullCalldata.slice(
+    0,
+    fullCalldata.length - suffixLenHex
+  ) as `0x${string}`;
+  const suffixFromTagged = ("0x" +
+    fullCalldata.slice(fullCalldata.length - suffixLenHex)) as `0x${string}`;
+
+  // Verify decodeFunctionData extracts the exact agentURI argument
+  const decodedFunction = decodeFunctionData({
+    abi: IDENTITY_REGISTRY_ABI,
+    data: rawFromTagged,
+  });
+  assert(
+    "decodeFunctionData recognizes register function name",
+    decodedFunction.functionName === "register"
+  );
+  assert(
+    "decodeFunctionData extracts exactly 1 argument",
+    Array.isArray(decodedFunction.args) && decodedFunction.args.length === 1
+  );
+
+  const extractedUri = decodedFunction.args[0] as string;
+  assert("Extracted agentURI matches prepared URI", extractedUri === uri);
+  assert(
+    "Extracted agentURI has RFC 2397 base64 prefix",
+    extractedUri.startsWith("data:application/json;base64,")
+  );
+
+  const decodedJsonStr = Buffer.from(
+    extractedUri.replace("data:application/json;base64,", ""),
+    "base64"
+  ).toString("utf8");
+  const decodedDoc = JSON.parse(decodedJsonStr);
+
+  assert(
+    "Decoded document has valid ERC-8004 type",
+    decodedDoc.type ===
+      "https://eips.ethereum.org/EIPS/eip-8004#registration-v1"
+  );
+  assert(
+    "Decoded document has name TaskPilot AI",
+    decodedDoc.name === "TaskPilot AI"
+  );
+  assert(
+    "Decoded document omits image property",
+    decodedDoc.image === undefined
+  );
+  assert(
+    "Decoded document has x402Support = false",
+    decodedDoc.x402Support === false
+  );
+  assert("Decoded document has active = true", decodedDoc.active === true);
+  assert(
+    "Decoded document has supportedTrust = []",
+    Array.isArray(decodedDoc.supportedTrust) &&
+      decodedDoc.supportedTrust.length === 0
+  );
+  assert(
+    "Decoded document has services pointing to repository",
+    decodedDoc.services[0]?.endpoint ===
+      "https://github.com/Alafedoyinsola/taskpilot-ai"
+  );
+  assert(
+    "Decoded document has registrations pointing to Celo Mainnet registry",
+    decodedDoc.registrations[0]?.agentRegistry ===
+      `eip155:42220:${ERC8004_REGISTRY_ADDRESS}`
+  );
+
+  // Suffix byte-level structure checks
+  assert(
+    "Attribution suffix length is exactly 35 bytes (70 hex characters)",
+    suffixFromTagged.length - 2 === 70
+  );
+  assert(
+    "Attribution suffix matches toDataSuffix(ATTRIBUTION_TAG)",
+    suffixFromTagged === preparedTx.attributionSuffix
+  );
+
+  const decodedAttribution = fromDataSuffix(fullCalldata);
+  assert(
+    "fromDataSuffix successfully parses attribution from complete calldata",
+    decodedAttribution !== null
+  );
+  assert(
+    "Decoded attribution codes array contains celo_c386b0979578",
+    decodedAttribution !== null &&
+      decodedAttribution.codes.includes(ATTRIBUTION_TAG)
+  );
+  assert(
+    "Decoded attribution schemaId is Schema 0",
+    decodedAttribution?.schemaId === 0
+  );
 
   // Restore env if it was set
   if (savedEnv !== undefined) {

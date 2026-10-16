@@ -54,6 +54,7 @@ export interface ExecutionOptions {
   challengePayload?: unknown;
   fetchLiveChallengeFn?: () => Promise<LiveChallengeResult>;
   executorFn?: (requestBody: CencoriRequestBody) => Promise<CencoriExecutionResult>;
+  researchFn?: (timeoutMs?: number) => Promise<RealResearchResult>;
 }
 
 /**
@@ -147,7 +148,8 @@ export async function executePlan(
         console.log(`  Source : DefiLlama Public API (https://api.llama.fi/protocols)`);
         console.log(`  Action : Fetching live Celo DeFi protocol statistics...`);
 
-        const research = await fetchCeloDefiProjects(8000);
+        const fetchResearch = options?.researchFn ?? fetchCeloDefiProjects;
+        const research = await fetchResearch(8000);
         realResearchData = research;
 
         if (research.success && research.protocols.length > 0) {

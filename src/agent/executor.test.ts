@@ -11,6 +11,7 @@ import {
   type LiveChallengeResult,
 } from "../services/cencoriService.ts";
 import type { ValidatedQuote } from "../services/quoteService.ts";
+import type { RealResearchResult } from "../services/researchService.ts";
 
 /**
  * ============================================================================
@@ -148,12 +149,48 @@ async function runExecutorTests(): Promise<void> {
   assert("Passes --account taskpilot-test in args array", capturedArgs.includes("--account") && capturedArgs[capturedArgs.indexOf("--account") + 1] === "taskpilot-test");
   assert("Uses --data-file without shell interpolation", capturedArgs.includes("--data-file"));
 
+  // Mock DefiLlama research fixture for 100% deterministic offline execution
+  const mockResearchResult: RealResearchResult = {
+    success: true,
+    source: "DefiLlama Public Protocols API",
+    sourceUrl: "https://api.llama.fi/protocols",
+    query: "Celo DeFi protocols",
+    isRealData: true,
+    protocols: [
+      {
+        name: "Aave V3",
+        category: "Lending",
+        celoTvlUsd: 15000000,
+        url: "https://aave.com",
+      },
+      {
+        name: "Uniswap V3",
+        category: "Dexes",
+        celoTvlUsd: 8500000,
+        url: "https://uniswap.org",
+      },
+      {
+        name: "Curve",
+        category: "Dexes",
+        celoTvlUsd: 4200000,
+        url: "https://curve.fi",
+      },
+    ],
+    fetchedAt: "2026-10-16T10:00:00.000Z",
+    summary:
+      "Found 3 top active DeFi protocols on Celo:\n      1. Aave V3 (Lending) — $15,000,000 TVL [https://aave.com]\n      2. Uniswap V3 (Dexes) — $8,500,000 TVL [https://uniswap.org]\n      3. Curve (Dexes) — $4,200,000 TVL [https://curve.fi]",
+  };
+  const mockResearchFn = async (): Promise<RealResearchResult> => mockResearchResult;
+
   // 8. Integration test: User decline path
   const plan = createPlan("Research Celo DeFi protocols");
   const declineResult = await executePlan(
     plan,
     async () => false,
-    { challengePayload: SAMPLE_TEST_402_CHALLENGE }
+    {
+      challengePayload: SAMPLE_TEST_402_CHALLENGE,
+      researchFn: mockResearchFn,
+    }
   );
   assert("Execution succeeds when user declines payment", declineResult.status === "success");
   const step3Decline = declineResult.results.find((r) => r.serviceType === "analysis");
@@ -165,7 +202,10 @@ async function runExecutorTests(): Promise<void> {
   const noCallbackResult = await executePlan(
     plan,
     undefined,
-    { challengePayload: SAMPLE_TEST_402_CHALLENGE }
+    {
+      challengePayload: SAMPLE_TEST_402_CHALLENGE,
+      researchFn: mockResearchFn,
+    }
   );
   const step3NoCallback = noCallbackResult.results.find((r) => r.serviceType === "analysis");
   assert("Omitting approval callback safely skips payment", step3NoCallback?.output.includes("[PAYMENT CANCELLED BY USER]") === true);
@@ -176,7 +216,10 @@ async function runExecutorTests(): Promise<void> {
     async () => {
       throw new Error("Terminal connection dropped");
     },
-    { challengePayload: SAMPLE_TEST_402_CHALLENGE }
+    {
+      challengePayload: SAMPLE_TEST_402_CHALLENGE,
+      researchFn: mockResearchFn,
+    }
   );
   const step3Throw = throwingCallbackResult.results.find((r) => r.serviceType === "analysis");
   assert("Approval callback exception caught and safely cancels payment", step3Throw?.output.includes("[PAYMENT CANCELLED BY USER]") === true);
@@ -198,7 +241,10 @@ async function runExecutorTests(): Promise<void> {
       policyTracker.prompted = true;
       return true;
     },
-    { challengePayload: overCapChallenge }
+    {
+      challengePayload: overCapChallenge,
+      researchFn: mockResearchFn,
+    }
   );
   assert("User is NEVER prompted for approval when quote violates policy cap", policyTracker.prompted === false);
   const step3PolicyFail = policyRejectionResult.results.find((r) => r.serviceType === "analysis");
@@ -223,6 +269,7 @@ async function runExecutorTests(): Promise<void> {
     {
       challengePayload: SAMPLE_TEST_402_CHALLENGE,
       executorFn: mockSuccessExecutor,
+      researchFn: mockResearchFn,
     }
   );
   assert("Execution succeeds when paid call succeeds", successResult.status === "success");
@@ -246,6 +293,7 @@ async function runExecutorTests(): Promise<void> {
     {
       challengePayload: SAMPLE_TEST_402_CHALLENGE,
       executorFn: mockFailureExecutor,
+      researchFn: mockResearchFn,
     }
   );
   assert("Execution completes partially/safely on gateway failure", failureResult.status === "partial");
@@ -271,6 +319,7 @@ async function runExecutorTests(): Promise<void> {
     {
       fetchLiveChallengeFn: mockSuccessProbe,
       executorFn: mockSuccessExecutor,
+      researchFn: mockResearchFn,
     }
   );
   assert("Live probe success prompts user for approval", liveProbeTracker.prompted === true);
@@ -292,6 +341,7 @@ async function runExecutorTests(): Promise<void> {
     },
     {
       fetchLiveChallengeFn: mockFailingProbe,
+      researchFn: mockResearchFn,
     }
   );
   assert("Probe failure NEVER prompts user for approval", fallbackTracker.prompted === false);
@@ -311,10 +361,36 @@ async function runExecutorTests(): Promise<void> {
     async () => true,
     {
       fetchLiveChallengeFn: mockNetworkFailProbe,
+      researchFn: mockResearchFn,
     }
   );
   const step3NetFail = networkFailResult.results.find((r) => r.serviceType === "analysis");
   assert("Step 3 safely catches network failure during probe", step3NetFail?.output.includes("ENOTFOUND") === true);
+
+  // 17. Research failure handling: Step 2 reports failure when researchFn fails
+  const mockFailingResearch = async (): Promise<RealResearchResult> => ({
+    success: false,
+    source: "DefiLlama Public Protocols API",
+    sourceUrl: "https://api.llama.fi/protocols",
+    query: "Celo DeFi protocols",
+    isRealData: true,
+    protocols: [],
+    fetchedAt: "2026-10-16T10:00:00.000Z",
+    summary: "API unavailable",
+    error: "Connection refused",
+  });
+
+  const researchFailResult = await executePlan(
+    plan,
+    async () => false,
+    {
+      challengePayload: SAMPLE_TEST_402_CHALLENGE,
+      researchFn: mockFailingResearch,
+    }
+  );
+  const step2Fail = researchFailResult.results.find((r) => r.serviceType === "data");
+  assert("Step 2 handles external research failure gracefully", step2Fail?.status === "failed");
+  assert("Step 2 records research error details", step2Fail?.output.includes("Connection refused") === true);
 
   console.log(`\n=================================================`);
   console.log(`  Tests Completed: ${passed} / ${total} passed`);
