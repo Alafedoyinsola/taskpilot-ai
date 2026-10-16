@@ -4,7 +4,7 @@
 
 > **Hackathon**: Celo — Agents on Open Rails<br>
 > **Track**: Build with buy<br>
-> **Status**: Core pipeline, safety controls, offline test suite (132/132 passing across 6 test suites), ERC-8004 identity verification, and `@celo/buy` x402 integration complete. Live payment execution is disabled by default behind an explicit feature flag and user approval gate.
+> **Status**: Core pipeline, safety controls, full offline test suite (165/165 passing across 6 test suites), ERC-8004 identity verification (`Agent ID 9964`), and `@celo/buy` x402 payment settlement verified on Celo Mainnet. Live payments remain disabled by default behind an interactive user confirmation prompt and process-level execution gate.
 
 ---
 
@@ -23,7 +23,28 @@ Autonomous AI agents frequently need access to external specialized capabilities
 
 ---
 
-## 2. Four-Step Workflow
+## 2. Celo Hackathon Evidence (Build with Buy Track)
+
+TaskPilot AI has been registered and tested on **Celo Mainnet** (Chain ID `42220`), successfully demonstrating a **user-authorized x402 payment flow** with interactive confirmation:
+
+| Evidence Item | Value / Description | CeloScan Verification Link |
+| :--- | :--- | :--- |
+| **ERC-8004 Agent ID** | `9964` (`TaskPilot AI`) | Verified on-chain via `viem` |
+| **ERC-8004 Registry** | `0x8004A169FB4a3325136EB29fA0ceB6D2e539a432` | [Registry Contract](https://celoscan.io/address/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432) |
+| **Identity Registration Tx** | Minted Agent `9964` with Loops House attribution (`celo_c386b0979578`) | [CeloScan: 0xa431a80d...](https://celoscan.io/tx/0xa431a80d8c7c63bf30d2bbc27de0d13ef531bf7faed4adacd115a4f27ee574f2) |
+| **x402 Settlement Tx** | EIP-3009 `transferWithAuthorization` ($0.010000 \text{ USDC}$) | [CeloScan: 0xff347042...](https://celoscan.io/tx/0xff34704274cc96b450794cab6f8343262992644cce92fee41687126825e62c0e) |
+| **Amount Paid** | **`0.01 USDC`** (10,000 atomic units) on Celo Mainnet | Block `80269391` |
+| **Service & Model** | Cencori LLM Inference (`maximo-atlas-1.3`) via `@celo/buy@0.8.3` | Endpoint: `https://gateway.usebuy.ai/cencori/v1/chat/completions` |
+| **PayTo Merchant Address** | `0x20faAca5F980E29639A0FCC6dcA6988E18ed333B` | Verified Cencori Gateway Merchant |
+| **Buyer Wallet Address** | `0xedfebD7Bd55350dAE26D3ec81Dfeb3f11c76CcfB` | `@celo/buy` profile `taskpilot` |
+| **Agent Owner Wallet** | `0x129910Aaf23898DDC16Af3d98178d9Dd0bb4C292` | Verified Agent Owner / Signer |
+
+> [!NOTE]
+> **Integration Context & Attribution Disclosure**: The on-chain x402 payment documented above represents a verified single-call technical integration test demonstrating TaskPilot's **user-authorized x402 payment flow**. An explicit interactive confirmation prompt (`[y/N]`) is strictly required before any payment is initiated. It is not presented as evidence of production customer adoption or commercial traction. While TaskPilot AI implements and unit-tests ERC-8021 calldata attribution (`celo_c386b0979578`), leaderboard attribution for facilitator-relayed EIP-3009 transfers is determined at the facilitator level. TaskPilot AI makes no claims regarding independent user volume or confirmed leaderboard standings.
+
+---
+
+## 3. Four-Step Workflow
 
 TaskPilot AI executes research tasks through a structured four-step pipeline:
 
@@ -69,7 +90,7 @@ TaskPilot AI executes research tasks through a structured four-step pipeline:
 
 ---
 
-## 3. `@celo/buy` & Cencori x402 Integration
+## 4. `@celo/buy` & Cencori x402 Integration
 
 TaskPilot AI integrates with the official `@celo/buy@0.8.3` CLI to execute HTTP 402 stablecoin payments on Celo Mainnet:
 
@@ -84,7 +105,7 @@ TaskPilot AI integrates with the official `@celo/buy@0.8.3` CLI to execute HTTP 
 
 ---
 
-## 4. Safety Controls & Policy Enforcement
+## 5. Safety Controls & Policy Enforcement
 
 To ensure autonomous execution never results in unexpected loss of funds or unauthorized transactions, TaskPilot AI implements defense-in-depth safety controls:
 
@@ -99,7 +120,7 @@ To ensure autonomous execution never results in unexpected loss of funds or unau
 
 ---
 
-## 5. Installation, Configuration & Testing
+## 6. Installation, Configuration & Testing
 
 ### Prerequisites
 * **Node.js**: v20.x or newer
@@ -126,18 +147,18 @@ npx tsc --noEmit
 ```
 
 ### Running Offline Unit Tests
-Run the entire offline test suite (132 tests across 6 test suites, 100% mocked, $0 spent):
+Run the entire offline test suite (165 tests across 6 test suites, 100% mocked, $0 spent):
 ```bash
 npx tsx --test src/agent/executor.test.ts src/services/cencoriService.test.ts src/services/quoteService.test.ts src/config/attribution.test.ts src/payments/sepoliaAttributionTest.test.ts src/services/identityService.test.ts
 ```
 
 Test coverage includes:
-* **Executor**: 30 tests covering step planning, probe error handling, approval decline, disabled flag, and report synthesis.
+* **Executor**: 32 tests covering step planning, probe error handling, approval decline, disabled flag, and report synthesis.
 * **Cencori Service**: 27 tests covering request construction, prompt generation, quote caps, response parsing, and error envelopes.
+* **ERC-8004 Identity Service**: 80 tests covering agent ID validation, contract mocks for matching/mismatching addresses, unset agent wallets, nonexistent agents, document encoding, registration calldata, attribution suffix, and RPC error handling.
 * **Sepolia Attribution Guards**: 15 tests covering address matching, hex formatting, and gas threshold validation.
 * **Quote Service**: 7 tests covering 402 challenge parsing, amount math, and recipient validation.
 * **Attribution**: 4 tests covering ERC-8021 metadata encoding and decoding via `@celo/attribution-tags`.
-* **ERC-8004 Identity Service**: 49 tests covering agent ID validation, contract mocks for matching/mismatching addresses, unset agent wallets, nonexistent agents, and RPC error handling.
 
 ### Running the Interactive Agent
 Run the interactive terminal interface:
@@ -166,7 +187,7 @@ To enable real mainnet inference calls:
 
 ---
 
-## 6. ERC-8004 Agent Identity Verification (Celo Mainnet)
+## 7. ERC-8004 Agent Identity Verification (Celo Mainnet)
 
 TaskPilot AI implements strictly read-only on-chain verification for ERC-8004 ("Trustless Agents") identity on Celo Mainnet:
 
@@ -174,42 +195,32 @@ TaskPilot AI implements strictly read-only on-chain verification for ERC-8004 ("
 * **Chain ID**: `42220` (`celo`)
 * **RPC Endpoint**: `https://forno.celo.org` (or configurable via `CELO_RPC_URL`)
 
+### Verified On-Chain Identity
+* **Agent ID**: `9964`
+* **Contract Token Owner**: `0x129910Aaf23898DDC16Af3d98178d9Dd0bb4C292`
+* **Operational Agent Wallet**: `0x129910Aaf23898DDC16Af3d98178d9Dd0bb4C292`
+* **Registration Tx**: [`0xa431a80d8c7c63bf30d2bbc27de0d13ef531bf7faed4adacd115a4f27ee574f2`](https://celoscan.io/tx/0xa431a80d8c7c63bf30d2bbc27de0d13ef531bf7faed4adacd115a4f27ee574f2)
+* **Attribution Metadata**: Loops House tag `celo_c386b0979578` (ERC-8021 metadata suffix standard)
+
 ### Read-Only Verification Architecture
 The identity service ([`src/services/identityService.ts`](src/services/identityService.ts)) performs strictly read-only contract calls via `viem`:
 1. `ownerOf(agentId)`: Checks the on-chain owner address holding the ERC-8004 identity token.
-2. `tokenURI(agentId)`: Retrieves the agent registration metadata URI (e.g., base64 gzip data URI or IPFS/HTTP JSON).
+2. `tokenURI(agentId)`: Retrieves the agent registration metadata URI (RFC 2397 base64 JSON).
 3. `getAgentWallet(agentId)`: Retrieves the designated operational agent wallet address.
 
-### Important Identity Prerequisites
-* **Independent Registration Required**: An agent ID must already exist on Celo and be registered independently before it can be verified. TaskPilot AI does **not** auto-register identities, sign transactions, or execute on-chain state changes.
-* **No Presumed Ownership**: Do not assume agent ID 1 belongs to TaskPilot AI. On Celo Mainnet, agent ID 1 is registered to an independent third party (`0x6446aD9821021Eeb9f85B8a18B0153d58166d161`). TaskPilot AI checks against its own configured expected address (`0x548c2aB49A592c288F69F9B618A723DA47e56F89`) and explicitly flags ID 1 as an address mismatch.
-* **No Unverified Identity Claims**: TaskPilot AI does not claim a registered ERC-8004 identity until its own dedicated agent ID has been established and verified on-chain.
-* **Unset Operational Wallet Behavior**: If the registry returns the zero address (`0x000...000`) for `getAgentWallet`, this indicates the operational wallet is unset (not configured). If the contract owner matches the expected address, the agent is considered verified.
+### Running the Live Identity Check
+Verify the live registration directly against Celo Mainnet:
+```bash
+# Verify using environment configuration (.env)
+npx tsx src/services/identityService.ts
 
-### Configuring & Running the Identity Check
-
-1. Set the configured agent ID in `.env` (once registered):
-   ```env
-   ERC8004_AGENT_ID=<your_agent_id>
-   ```
-
-2. Run the identity verification service:
-   ```bash
-   # Run using environment variables (.env)
-   npx tsx src/services/identityService.ts
-
-   # Or specify an explicit agent ID and expected address via CLI flags:
-   npx tsx src/services/identityService.ts --agent-id 42 --expected-address 0x548c2aB49A592c288F69F9B618A723DA47e56F89
-   ```
-
-3. Run the offline identity unit test suite (49 tests):
-   ```bash
-   npx tsx --test src/services/identityService.test.ts
-   ```
+# Or verify with explicit parameters via CLI flags:
+npx tsx src/services/identityService.ts --agent-id 9964 --expected-address 0x129910Aaf23898DDC16Af3d98178d9Dd0bb4C292
+```
 
 ---
 
-## 7. Attribution & Ecosystem Integration
+## 8. Attribution & Ecosystem Integration
 
 * **Hackathon**: Celo — Agents on Open Rails
 * **Track**: Build with buy
@@ -217,11 +228,11 @@ The identity service ([`src/services/identityService.ts`](src/services/identityS
 * **Standard**: ERC-8021 metadata suffix (Schema 0) encoded via `@celo/attribution-tags`.
 
 ### Attribution Architecture & Limitations
-* **Unit-Tested Encoding**: Byte-level ERC-8021 suffix formatting is unit-tested in `src/config/attribution.test.ts` and `src/payments/sepoliaAttributionTest.test.ts`, confirming valid suffix bytes (`0x63656c6f5f633338366230393739353738110080218021...`) and lossless decoding back to tag `celo_c386b0979578`.
-* **Facilitator-Relayed Payment Limitation**: In `@celo/buy@0.8.3`, payment settlement is executed via off-chain EIP-3009 authorizations (`transferWithAuthorization`) relayed to the facilitator. Because the facilitator constructs and broadcasts the settlement transaction on-chain, client-side calldata suffix injection is governed by the facilitator relay service. While TaskPilot AI implements and tests ERC-8021 suffix encoding for direct on-chain contract transactions, confirmed on-chain attribution for facilitator-relayed payments remains subject to facilitator-level support.
+* **Unit-Tested Encoding**: Byte-level ERC-8021 suffix formatting is unit-tested in `src/config/attribution.test.ts`, `src/payments/sepoliaAttributionTest.test.ts`, and `src/services/identityService.test.ts`, confirming valid suffix bytes (`0x63656c6f5f633338366230393739353738110080218021...`) and lossless decoding back to tag `celo_c386b0979578`.
+* **Facilitator-Relayed Payment Limitation**: In `@celo/buy@0.8.3`, payment settlement is executed via off-chain EIP-3009 authorizations (`transferWithAuthorization`) relayed to the facilitator. Because the facilitator constructs and broadcasts the settlement transaction on-chain, client-side calldata suffix injection is governed by the facilitator relay service. While TaskPilot AI implements and tests ERC-8021 suffix encoding for direct on-chain contract transactions (including its ERC-8004 registration transaction), confirmed on-chain attribution for facilitator-relayed payments remains subject to facilitator-level support.
 
 ---
 
-## 8. License
+## 9. License
 
 MIT License. See [LICENSE](LICENSE) for details.

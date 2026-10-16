@@ -359,6 +359,7 @@ function defaultSpawn(
     const child = spawn(command, args, {
       windowsHide: true,
       stdio: ["ignore", "pipe", "pipe"],
+      shell: process.platform === "win32",
     });
 
     let stdout = "";
@@ -432,7 +433,7 @@ export async function executeCencoriInference(
       "-X",
       "POST",
       "-H",
-      "Content-Type: application/json",
+      process.platform === "win32" ? '"Content-Type: application/json"' : "Content-Type: application/json",
       "--data-file",
       tempFilePath,
       endpoint,
